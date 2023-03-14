@@ -56,20 +56,23 @@ instance [Mul T] : HMul (Array T) T (Array T) where hMul x y := x.map (λ a => a
 
 instance [HPow S T S] : HPow S (Array T) (Array S) where hPow x n := n.map (λ k => x ^ k)
 
-partial def fwd_butterfly [Field ExtElem] [RootsOfUnity ExtElem] (n expand_bits : Nat) (arr : Array ExtElem) : Array ExtElem :=
-  if n == 0
+def fwd_butterfly [Field ExtElem] [RootsOfUnity ExtElem] (n expand_bits : Nat) (arr : Array ExtElem) : Array ExtElem :=
+  if h : n == 0
     then arr
     else if n == expand_bits 
       then arr
       else 
+        have : n - 1 < n := by rw [beq_iff_eq] at h
+                               exact Nat.sub_lt (Nat.zero_lt_of_ne_zero h) (by decide)
         let first_half : Array ExtElem := fwd_butterfly (n-1) expand_bits (arr.toSubarray 0 (2 ^ (n-1))).toArray
         let second_half : Array ExtElem := fwd_butterfly (n-1) expand_bits (arr.toSubarray (2 ^ (n-1)) (2 ^ n)).toArray
         let second_half' : Array ExtElem := 
           second_half * 
           ((RootsOfUnity.ROU_FWD[n]! : ExtElem) ^ ((List.range n).toArray) : Array ExtElem)
         (first_half + second_half') ++ (first_half - second_half')
+termination_by _ => n
 
-partial def rev_butterfly [Field ExtElem] [RootsOfUnity ExtElem] (n : Nat) (arr : Array ExtElem) : Array ExtElem :=
+def rev_butterfly [Field ExtElem] [RootsOfUnity ExtElem] (n : Nat) (arr : Array ExtElem) : Array ExtElem :=
   match n with
   | 0 => arr
   | n + 1 =>

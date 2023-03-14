@@ -16,6 +16,8 @@
 
 import R0sy
 
+import Mathlib.Data.Nat.Basic
+
 namespace Zkvm.ArithVM.Taps
 
 open R0sy.ByteDeserial
@@ -112,6 +114,8 @@ structure RegIter where
   iter_cursor: Nat
   iter_end: Nat
 
+-- Morally partial. For any TapData.step == 0 we have next := cursor.
+-- In the recursive case we have iter_cursor := iter_cursor and we cycle.
 partial def RegIter.forIn [Monad M] [Inhabited X] (self: RegIter) (x: X) (f: RegRef -> X -> M (ForInStep X)): M X
   := do let cursor := self.iter_cursor
         if cursor >= self.iter_data.size then return x
@@ -122,9 +126,49 @@ partial def RegIter.forIn [Monad M] [Inhabited X] (self: RegIter) (x: X) (f: Reg
         | ForInStep.done x' => pure x'
         | ForInStep.yield x' => RegIter.forIn { self with iter_cursor := next } x' f
 
+-- def RegIter.forIn [Monad M] [Inhabited X] (self: RegIter) (x: X) (f: RegRef -> X -> M (ForInStep X)): M X
+--   := let cursor := self.iter_cursor
+--      if cursor >= self.iter_data.size then pure x
+--      else let next := cursor + self.iter_data[cursor]!.skip.toNat
+--      if h₁ : next > self.iter_end then pure x
+--      else do
+--        let step <- f { data := self.iter_data, cursor } x
+--        match step with
+--          | ForInStep.done x' => pure x'
+--          | ForInStep.yield x' => 
+--            have : self.iter_end - (self.iter_cursor + UInt8.toNat self.iter_data[self.iter_cursor]!.skip) <
+--                   self.iter_end - self.iter_cursor := by
+--              simp at *; generalize eq : UInt8.toNat self.iter_data[cursor]!.skip = skipN at *
+--              rw [Nat.sub_add_eq]
+--              apply Nat.sub_lt_of_pos_le _ _ _ (Nat.le_sub_of_add_le (add_comm _ skipN ▸ h₁))
+--              sorry -- TapData.step can be 0.
+--                    -- See counterexample below.
+--            RegIter.forIn { self with iter_cursor := next } x' f
+-- termination_by _ => self.iter_end - self.iter_cursor
+
 instance : ForIn M RegIter RegRef where
   forIn iter b f := @RegIter.forIn _ _ _ { default := b } iter b f
 
+------------ Partial on purpose? -------------
+-- instance : ToString TapData where
+--   toString td := s!"skip: {td.skip}"
+
+-- instance : ToString RegRef where
+--   toString rr := s!"data: {rr.data} cursor: {rr.cursor}"
+
+-- instance : ToString RegIter where
+--   toString ri := s!"{ri.iter_data}"
+
+-- -- -- def testTap : TapData := ⟨4, 5, RegisterGroup.Code, 0, 0⟩ set skip to 0 and boom :(
+-- def testTap : TapData := ⟨4, 5, RegisterGroup.Code, 0, 2⟩
+
+-- #eval (Id.run do
+--   let rIter : RegIter := ⟨⟨List.repeat testTap 5⟩, 1, 5⟩
+--   let mut strs : Array String := #[]
+--   for x in rIter do
+--     strs := strs.push s!"{x}"
+--   return strs)
+------------ Partial on purpose? -------------
 
 /- Combo -/
 

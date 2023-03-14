@@ -22,6 +22,7 @@ namespace Zkvm.Algebra.BabyBear
 open R0sy.Hash
 open R0sy.Serial
 open Zkvm.Algebra.Classes
+open R0sy.Wheels
 
 /- Base field -/
 
@@ -98,18 +99,26 @@ instance : Neg Elem where neg x := prim_sub 0 x
 instance : Mul Elem where mul x y := prim_mul x y
 
 @[always_inline, inline]
-partial def prim_pow (x_mul: X -> X -> X) (one x: X) (n: Nat): X :=
-  if n == 0 then one
+def prim_pow (x_mul: X -> X -> X) (one x: X) (n: Nat): X :=
+  if h : n == 0 then one
   else if n == 1 then x
   else if n == 2 then x_mul x x
-  else if n &&& 1 == 0 then prim_pow x_mul one (x_mul x x) (n / 2)
-  else x_mul x (prim_pow x_mul one (x_mul x x) ((n - 1) / 2))
+  else have : n / 2 < n := Nat.div_lt_self (Nat.pos_of_ne_zero (by simp at h; assumption)) (by decide)
+    if h₁ : n &&& 1 == 0 then prim_pow x_mul one (x_mul x x) (n / 2)
+  else
+    have : (n - 1) / 2 < n := by
+      rw [beq_iff_eq] at h h₁
+      rw [land_one_eq_0_iff_n_mod_2_eq_0, odd_iff_not_even.symm] at h₁
+      rw [div_two_of_odd h₁]
+      exact this
+    x_mul x (prim_pow x_mul one (x_mul x x) ((n - 1) / 2))
+termination_by _ => n
 
 @[always_inline]
 instance : HPow Elem Nat Elem where hPow x n := prim_pow prim_mul (encode 1) x n
 
 @[always_inline]
-instance : Ring Elem where ofNat n := encode (UInt32.ofNat (n % P.toNat))
+instance : Classes.Ring Elem where ofNat n := encode (UInt32.ofNat (n % P.toNat))
 
 @[always_inline]
 instance : Div Elem where div x y := prim_mul x (prim_pow prim_mul (encode 1) y (P - 2).toNat)
@@ -233,7 +242,7 @@ instance : Mul ExtElem where mul x y := prim_ext_mul x y
 instance : HPow ExtElem Nat ExtElem where hPow x n := prim_pow prim_ext_mul (prim_ext_of_nat 1) x n
 
 @[always_inline]
-instance : Ring ExtElem where ofNat n := prim_ext_of_nat n
+instance : Classes.Ring ExtElem where ofNat n := prim_ext_of_nat n
 
 @[always_inline, inline]
 def prim_ext_inv (a: ExtElem): ExtElem :=

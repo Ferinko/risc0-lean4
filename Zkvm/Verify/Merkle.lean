@@ -85,6 +85,8 @@ namespace MerkleTreeVerifier
         then self.top[MerkleTreeParams.idx_to_top self.params 1]!
         else self.rest[MerkleTreeParams.idx_to_rest self.params 1]!
 
+  -- Morally partial - should this be the case? E.g. suppose fr = 0, to = 0.
+  -- Then i = 0. 0 < 0 is false, fillUpperRest _ _ _ _ _ (0 - 0) and we cycle.
   partial def fillUpperRest [Hash D] (params: MerkleTreeParams) (top out: Array D) (fr to: Nat) (i: Nat := fr - 1): Array D
     := if i < to
         then out
@@ -94,6 +96,8 @@ namespace MerkleTreeVerifier
           let out' := Array.set! out out_idx (Hash.hash_pair top[top_idx]! top[top_idx + 1]!)
           fillUpperRest params top out' fr to (i - 1)
 
+  -- Morally partial - should this be the case? E.g. suppose fr = 0, to = 0.
+  -- Then i = 0. 0 < 0 is false, fillUpperRest _ _ _ _ _ (0 - 0) and we cycle.
   partial def fillLowerRest [Hash D] (params: MerkleTreeParams) (out: Array D) (fr to: Nat) (i: Nat := fr - 1): Array D
     := if i < to
         then out
@@ -102,7 +106,6 @@ namespace MerkleTreeVerifier
           let out_idx := MerkleTreeParams.idx_to_rest params i
           let out' := Array.set! out out_idx (Hash.hash_pair out[upper_rest_idx]! out[upper_rest_idx + 1]!)
           fillLowerRest params out' fr to (i - 1)
-
 
   def read_and_commit [Monad M] [MonadReadIop M] [MonadCommitIop D M] [Hash D] (row_size col_size queries: Nat): M (MerkleTreeVerifier D)
     := do let params := MerkleTreeParams.new row_size col_size queries
